@@ -1,0 +1,33 @@
+
+import java.io.*;
+import java.net.*;
+import java.util.AbstractQueue;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+public class TServer {
+    
+    public static void main(String[] args) {
+        
+        int ServerPort = 8000;
+        try {
+            ServerSocket ListenSocket = new ServerSocket(ServerPort);
+            while (true) {                
+                 Socket ClientSocket  = ListenSocket.accept();
+                 
+                 //Create thread for the client with different socket.
+                 Connection c = new Connection(ClientSocket);
+                 
+                System.out.println("Server Connected!");
+            }
+        
+        
+        } catch (IOException ex) {
+            System.out.println("IO : " + ex.getMessage());
+        
+        }
+    
+    }
+}
