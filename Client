@@ -1,0 +1,105 @@
+
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+public class TClient {
+
+ 
+ public static void main(String[] args) {
+
+Scanner scan = new Scanner(System.in) ; 
+int no_of_process , x , q = 0; 
+ ObjectOutputStream out ; 
+ ObjectInputStream in ;    
+Socket S = null  ;
+Process [] p ; 
+byte [] b= new byte[3];
+double avg_waiting , avg_turnaround ; 
+
+// Read number of processes.
+System.out.println("Plz enter the number of processes");
+no_of_process =  scan.nextInt();
+
+//Read wanted algorithm
+System.out.println("Plz enter No of scheduling algorithm \n  FCFS -> 1 \n  RR -> 2 \n  NP.SJF -> 3 \n  P.SJF -> 4 \n"
+        + " multilevel queue -> 5 ");
+
+      x = scan.nextInt();
+      
+                                            if (x==2 || x==5)
+                                            {
+                                                System.out.println("enter quantum time : ");
+                                                q= scan.nextInt() ; 
+                                             }
+
+//Creat array of processes.
+ p = new Process[no_of_process];  
+
+ 
+//Read the processes information.
+     for (int i = 1; i <= no_of_process; i++) {
+       p[i-1] = new Process();
+       
+       System.out.println("plz enter id of process" + i);
+        p[i-1].id = scan.nextInt() ; 
+       
+       System.out.println("plz enter arrival_time of process" + i);
+        p[i-1].arrival_time = scan.nextInt();
+        
+        System.out.println("plz enter burst_time of process" + i);
+        p[i-1].burst_time = scan.nextInt();
+        
+       // System.out.println("plz enter priority of process" + i);
+        //p[i-1].priority = scan.nextInt();
+        
+     }
+      
+            
+   try {
+             int ServerPort = 8000 ;        
+             String host = "127.0.0.1";
+             S = new Socket(host, ServerPort);
+                        
+         out = new ObjectOutputStream(S.getOutputStream()) ;
+                 
+         out.writeInt(x);                                 // Sending algorithm No. 
+                                            
+                                        if(x==2 || x==5)                                //sending quantum time where RR or multilevel queue selected
+                                              out.writeInt(q);
+                                           
+       out.writeObject(p);                        //Serialize objects and write it into stream.
+         
+                
+                                                 
+           in = new ObjectInputStream(S.getInputStream());
+           
+           avg_turnaround = in.readDouble();
+           avg_waiting = in.readDouble();
+            p = (Process[]) in.readObject();
+  
+                  //Printing    
+         for (int i = 0 ; i < p.length ; i++) {
+             System.out.println("id : " +p[i].id +"     waiting : "+p[i].waiting_time +"    turnaround : "+p[i].turaround_time );        
+         }
+               System.out.println("\n average waiting time : "+avg_waiting + "\n avreage turnaround time : "+avg_turnaround);
+                    
+        
+        } catch (Exception ex) {
+            System.out.println("IO : "+ ex.getMessage());    
+        } 
+    finally {
+     
+        if(S != null)
+        try {
+            S.close();
+        } catch (IOException ex) {
+            System.out.println("Close Failed");  
+        }
+       }
+    
+    }
+
+}
