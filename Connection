@@ -1,0 +1,446 @@
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
+import java.util.LinkedList;
+import java.util.Queue;
+
+
+
+    
+
+public class Connection extends Thread
+{
+
+ObjectInputStream in ;
+ObjectOutputStream out ; 
+Socket ClientSocket ; 
+Queue <Process> ready_queue = new LinkedList<>()  ;
+Queue<Process>waiting_queu = new LinkedList<>();
+int [] remaining_time ; 
+int no_of_process , current_time  ; 
+int finish ; 
+Process temp ; 
+Process [] pr ; 
+int quantum , min_remaining , algNo ; 
+double avg_waiting=0 , avg_turnaround=0 ;  
+
+
+    public Connection(Socket ClientSocket) {
+
+    this.ClientSocket = ClientSocket ; 
+    
+    try {
+    
+        in = new ObjectInputStream(ClientSocket.getInputStream());
+        out = new ObjectOutputStream(ClientSocket.getOutputStream());
+        this.start();
+   
+    } catch (IOException ex) {
+        System.out.println("IO : " + ex.getMessage());
+    }
+    
+    }
+
+
+    
+@Override
+public void run (){
+
+    try {
+      
+                
+         //Read No. of selected algorithm.
+            algNo = in.readInt(); 
+
+                                    if(algNo==2 || algNo == 5)                //read quantum for RR 
+                                            quantum = in.readInt();
+        
+            //DeSerialize objects .                        
+          // Casting recieved objects to array of processes and store the recieved processes .
+        pr =  (Process[]) in.readObject() ; 
+          this.no_of_process = pr.length ; 
+   
+   
+                                                if(algNo==1)
+                                                {
+                                                    FCFS();
+                                                    calculate();
+                                                
+                                                }
+                                                              else 
+                                                                    if (algNo == 2)
+                                                                    {
+                                                                       RR(quantum);
+                                                                       calculate();
+                                                                     }
+                                                                                else if (algNo == 3 )
+                                                                                        {
+                                                                                        SJF();
+                                                                                        calculate();
+                                                                                          }
+                                                                                                                else if (algNo == 4 ) 
+                                                                                                                        {
+                                                                                                                            Preemitive_SJF();
+                                                                                                                            calculate();
+                                                                                                                            }
+         
+                                                                                                                                        else if (algNo == 5)
+                                                                                                                                            {
+                                                                                                                                                System.out.println("fdsfdsf");
+                                                                                                                                                multi_level_queu(quantum);
+                                                                                                                                                calculate();
+                                                                                                                                            }
+        out.writeDouble(avg_turnaround);            //return avg turnaround to client
+        out.writeDouble(avg_waiting);                   //return avg waiting to client
+        out.writeObject(pr);                                      // return process to client with their turnaround&waiting time.  
+        
+    } catch (IOException | ClassNotFoundException ex) {
+        System.out.println("IO : "+ex.getMessage());    } 
+}
+
+
+
+public  void FCFS (){
+
+    sort_by_arrivalTime();
+    pr[0].start_time = pr[0].arrival_time ; 
+    pr[0].end_time = pr[0].start_time + pr[0].burst_time ;
+
+    for (int i = 1; i < no_of_process; i++)
+    {
+        
+                                            if (pr[i].arrival_time < pr[i-1].end_time)
+                                            {
+                                                    pr[i].start_time = pr[i-1].end_time ; 
+                                             }
+                                                                    else 
+                                                                    {
+                                                                            pr[i].start_time = pr[i].arrival_time ;
+                                                                     } 
+ 
+     pr[i].end_time = pr[i].start_time + pr[i].burst_time ;
+    
+    }
+    
+    
+}
+
+public  void calculate () {
+    
+    for (int i =0 ; i < pr.length; i++) {
+    pr[i].turaround_time =  pr[i].end_time  - pr[i].arrival_time ; 
+    pr[i].waiting_time = pr[i].turaround_time - pr[i].burst_time ; 
+   
+    avg_turnaround += pr[i].turaround_time ; 
+   avg_waiting += pr[i].waiting_time ; 
+    }
+
+    avg_turnaround = avg_turnaround / no_of_process ; 
+    avg_waiting = avg_waiting  / no_of_process ; 
+    
+}
+
+public  void RR ( int quantum) {
+
+
+//initialize remaining time equals burst time. 
+for (int i = 0; i < pr.length; i++) {
+        pr[i].remaining_time = pr[i].burst_time ; 
+             }
+            
+sort_by_arrivalTime();
+
+   current_time = pr[0].arrival_time ;     //initialize current time. 
+    int i =1;                 // refer to order of process which will be inserted in the queue
+    finish = 0 ;          // flag to show number of finished processes
+   
+   ready_queue.add(pr[0]);
+ 
+   while (finish < no_of_process)
+   {
+                                        temp  =  ready_queue.poll();     // temp refer to excuting process.
+   
+                                                if (temp.remaining_time<= quantum) 
+                                                    {        
+                                                        current_time += temp.remaining_time ; 
+                                                        temp.remaining_time = 0 ; 
+                                                        temp.end_time = current_time ; 
+                                                         finish++ ;
+                                                     }                                                                   
+    
+                                                else 
+                                                {
+                                                current_time += quantum ; 
+                                                temp.remaining_time -= quantum ; 
+                                                                                                
+                                                }
+            while (i < pr.length && pr[i].arrival_time <= current_time) //check arrival of processes and add them to ready queu.
+       {
+           ready_queue.add(pr[i]);
+           i++;
+       }
+
+                                if (temp.remaining_time !=0) // check if excuting process hasn't completed then add it to queue.
+                                      ready_queue.add(temp);
+   }
+
+
+
+    }
+
+public void sort_by_arrivalTime (){
+int min , min_index ; 
+Process temp ;
+
+for (int i = 0; i < pr.length; i++) {
+        
+     min = pr[i].arrival_time  ; 
+     min_index = i  ; 
+        for (int j = i+1; j < pr.length-1; j++)
+        {
+            
+                                      if (pr[j].arrival_time < min) 
+                                       {    min = pr[j].arrival_time ;     
+                                             min_index = j ; 
+                                        }
+            
+         }
+    //Swap
+    temp = pr[i] ; 
+    pr[i] = pr[min_index] ; 
+    pr[min_index] = temp ;  
+    
+    }
+
+
+
+
+}
+
+public void SJF (){
+int k = 0 ; 
+sort_by_arrivalTime();
+ pr[0].remaining_time = pr[0].burst_time;
+//if there's a processes with the same arrival_time then it sorted by its burst_time and initialize remaining time.
+                                for (int i = 0 ; i <no_of_process-1 ; i++)
+                                {
+                                            pr[i+1].remaining_time = pr[i+1].burst_time;
+                                                        if(pr[i].arrival_time == pr[i+1].arrival_time &&pr[i].burst_time > pr[i+1].burst_time)
+                                                        {
+                                                        //Swap
+                                                        temp = pr[i] ; 
+                                                        pr[i] = pr[i+1] ; 
+                                                        pr[i+1] = temp ;     
+                                                        }
+                                }
+
+          current_time = pr[0].arrival_time ;   //initialize current time .
+          
+                                while (finish < no_of_process) 
+                                { 
+                                    //Check process arrival and add arrived process to waiting queu.
+                                                              while (k < no_of_process && pr[k].arrival_time <= current_time)
+                                                              {
+                                                                           waiting_queu.add(pr[k]);
+                                                                                          k++;
+                                                               }
+             Schedule_waitingQueu();      //get min. remaining time and put the process with min. remainin in the head of the queue.
+                                                              
+                                                              
+        //excute process from waitinig queue.
+         
+            temp = waiting_queu.poll(); 
+            temp.start_time = current_time;
+            current_time = current_time + temp.burst_time;
+            temp.end_time = current_time;
+            finish++;
+
+        
+    }
+                    }       
+
+
+public  void Preemitive_SJF (){
+
+     sort_by_arrivalTime();
+
+current_time = pr[0].arrival_time ; 
+
+//if there's a processes with the same arrival_time then it sorted by its burst_time and initialize remaining time.
+      pr[0].remaining_time = pr[0].burst_time ; 
+      
+                                for (int i = 0 ; i <no_of_process-1 ; i++)
+                                {
+                                    pr[i+1].remaining_time = pr[i+1].burst_time ; 
+                                    
+                                                        if(pr[i].arrival_time == pr[i+1].arrival_time &&pr[i].burst_time > pr[i+1].burst_time)
+                                                        {
+                                                        //Swap
+                                                        temp = pr[i] ; 
+                                                        pr[i] = pr[i+1] ; 
+                                                        pr[i+1] = temp ;     
+                                                        }
+                                }
+ 
+
+int k = 1  ;
+finish = 0 ; 
+temp = pr[0] ;  // temp refer to excuting process.
+min_remaining = temp.burst_time - 1 ;    //initialize min remainig time.
+
+        while (finish < no_of_process) {
+             
+            current_time++;
+            temp.remaining_time-- ;
+            
+            
+            while (k<no_of_process&&pr[k].arrival_time <= current_time) //check arrival of processes and add them to the queu.
+                {
+                  waiting_queu.add(pr[k]);
+                  k++  ;   
+                }
+                
+Schedule_waitingQueu();     //get min. remaining time in the queue and put the min. remain. process at the head of the queu.
+     
+                        if (temp.remaining_time == 0)
+                         {
+                             temp.end_time = current_time ; 
+                             finish ++ ; 
+                                                    if(!waiting_queu.isEmpty())
+                                                    {  
+                                                        temp = waiting_queu.poll();
+                                                    }
+                         }                        
+                     
+
+                        else if (temp.remaining_time > min_remaining)  // compare remaining time of excuting process with min. remaining time in waiting queu.
+                        {
+                            waiting_queu.add(temp);                     // add excuting process to waiting queue.
+                            temp = waiting_queu.poll();                 // retrieve head of the queue to excuting process.
+                    
+                        }
+            
+            }
+
+}
+
+
+public void Schedule_waitingQueu ()
+        {
+            int size , i = 0  ;
+            Process check ; 
+   
+            if (!waiting_queu.isEmpty()) {
+                  min_remaining = waiting_queu.peek().remaining_time;
+            }
+  
+                
+            size =  waiting_queu.size();
+            
+            //get min. remaining time.
+              while (size > 0) {                
+                check = waiting_queu.poll();
+                                if(check.remaining_time < min_remaining)                    
+                                    min_remaining = check.remaining_time ;
+                size -- ; 
+                waiting_queu.add(check);
+            }
+              i = 0 ; 
+            size= waiting_queu.size();
+            
+            // put process with min remaining time at the head of the queue. 
+            while ( size> 0) 
+            {                
+                    if(waiting_queu.peek().remaining_time == min_remaining)      
+                                break ;
+                    
+                    else 
+                    {
+                    waiting_queu.add(waiting_queu.poll());        
+                    size -- ; 
+                    }
+            }
+            
+                
+                
+            
+            
+        }
+
+
+public Process [] sort_by_burstTime (Process[] arr){
+int min , min_index ; 
+Process temp ;
+
+for (int i = 0; i < arr.length; i++) {
+        
+     min = arr[i].burst_time  ; 
+     min_index = i  ; 
+        for (int j = i+1; j < arr.length-1; j++)
+        {
+            
+                                      if (arr[j].burst_time < min) 
+                                       {    min = arr[j].burst_time ;     
+                                             min_index = j ; 
+                                        }
+            
+         }
+}
+return arr ; 
+}
+
+
+public void multi_level_queu (int q){
+//we have 2 queue : ready queue which operate as RR scheduler and waitinig queue which operates as SJF scheduler.
+
+sort_by_arrivalTime();
+//initilize remainin time.
+    for (int i = 0; i < no_of_process; i++) {
+        pr[i].remaining_time = pr[i].burst_time  ;
+    }
+
+current_time = pr[0].arrival_time ;     //initialize current time. 
+    int i =1;                 // refer to order of process which will be inserted in the queue
+   finish = 0 ; 
+   
+   ready_queue.add(pr[0]);
+    
+   while (finish < no_of_process){
+       
+                                            temp  = ready_queue.poll();     // temp refer to excuting process.
+   
+                                                if (temp.remaining_time<= q) 
+                                                    {       
+                                                        current_time += temp.remaining_time ; 
+                                                        temp.remaining_time = 0 ; 
+                                                        temp.end_time = current_time ; 
+                                                        finish ++ ;
+                                                     }                                                                   
+    
+                                                else                        // unfinished process, will add to waiting queue.
+                                                 {
+                                                current_time += q ; 
+                                                temp.remaining_time -= q ;
+                                                waiting_queu.add(temp);
+                                                finish ++; 
+                                                 }
+                                    
+            while (i < pr.length && pr[i].arrival_time <= current_time) //check arrival of processes and add them to ready queu.
+       {
+           ready_queue.add(pr[i]);
+           i++;
+       }
+   
+   }
+
+    while (!waiting_queu.isEmpty()) {        
+        
+                                                Schedule_waitingQueu();
+                                                temp = waiting_queu.poll();
+                                                current_time += temp.remaining_time ;
+                                                temp.end_time = current_time ; 
+                                                    }
+   
+}
