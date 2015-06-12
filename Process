@@ -1,0 +1,17 @@
+
+import java.io.Serializable;
+
+
+public class Process implements Serializable{
+
+int id , arrival_time , burst_time , priority  , start_time , end_time , turaround_time , waiting_time , remaining_time; 
+
+//    public Process(int id , int arrival_time , int burst_time , int priority) {
+//
+//    this.id = id ; 
+//    this.arrival_time = arrival_time ; 
+//    this.burst_time = burst_time ; 
+//    this.priority = priority ; 
+//    
+//    }
+}
